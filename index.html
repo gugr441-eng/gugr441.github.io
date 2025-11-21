@@ -1,1 +1,418 @@
-<h1>这是我的页面，hello</h1>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爱心烟花</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            font-family: 'Arial', sans-serif;
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 32px;
+            text-shadow: 0 0 20px rgba(255, 105, 180, 0.8),
+                         0 0 40px rgba(255, 20, 147, 0.6);
+            z-index: 10;
+            pointer-events: none;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 20px rgba(255, 105, 180, 0.8),
+                            0 0 40px rgba(255, 20, 147, 0.6);
+            }
+            to {
+                text-shadow: 0 0 30px rgba(255, 105, 180, 1),
+                            0 0 60px rgba(255, 20, 147, 0.8),
+                            0 0 80px rgba(255, 20, 147, 0.6);
+            }
+        }
+
+        .hint {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 16px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .main-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 42px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            white-space: nowrap;
+            text-shadow: 0 0 20px rgba(255, 105, 180, 0.8),
+                         0 0 40px rgba(255, 20, 147, 0.6),
+                         0 0 60px rgba(255, 105, 180, 0.4);
+            opacity: 0;
+            letter-spacing: 2px;
+            transition: opacity 1.5s ease-in;
+        }
+
+        .main-text.show {
+            opacity: 1;
+            animation: textGlow 2s ease-in-out infinite alternate;
+        }
+
+        .main-text .highlight {
+            display: inline-block;
+            color: #ff69b4;
+            font-size: 1.3em;
+            animation: pulse 1.5s ease-in-out infinite,
+                       shake 0.5s ease-in-out infinite;
+            text-shadow: 0 0 30px rgba(255, 105, 180, 1),
+                         0 0 60px rgba(255, 20, 147, 0.8),
+                         0 0 90px rgba(255, 20, 147, 0.6);
+            transform-origin: center;
+        }
+
+        @keyframes textGlow {
+            from {
+                text-shadow: 0 0 20px rgba(255, 105, 180, 0.8),
+                            0 0 40px rgba(255, 20, 147, 0.6),
+                            0 0 60px rgba(255, 105, 180, 0.4);
+            }
+            to {
+                text-shadow: 0 0 30px rgba(255, 105, 180, 1),
+                            0 0 60px rgba(255, 20, 147, 0.8),
+                            0 0 90px rgba(255, 20, 147, 0.6),
+                            0 0 120px rgba(255, 105, 180, 0.4);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.15);
+            }
+        }
+
+        @keyframes shake {
+            0%, 100% {
+                transform: translateX(0) scale(1);
+            }
+            25% {
+                transform: translateX(-2px) scale(1.1);
+            }
+            75% {
+                transform: translateX(2px) scale(1.1);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-text {
+                font-size: 28px;
+                padding: 0 20px;
+                white-space: normal;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">💖 爱心烟花 💖</h1>
+    <canvas id="canvas"></canvas>
+    <div class="main-text">
+        今晚来我家，我给你看我的<span class="highlight">~小~键盘~</span>
+    </div>
+    <div class="hint">点击屏幕任意位置释放爱心烟花</div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 设置画布大小
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // 调整窗口大小时更新画布
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // 烟花类
+        class Firework {
+            constructor(x, y, targetX, targetY) {
+                this.x = x;
+                this.y = y;
+                this.startX = x;
+                this.startY = y;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                
+                // 计算距离和时间
+                const dx = targetX - x;
+                const dy = targetY - y;
+                this.distance = Math.sqrt(dx * dx + dy * dy);
+                this.traveled = 0;
+                
+                // 速度和方向
+                this.angle = Math.atan2(dy, dx);
+                this.speed = 8 + Math.random() * 4;
+                this.acceleration = 1.05;
+                this.brightness = Math.random() * 50 + 50;
+                
+                // 颜色
+                const colors = [
+                    {r: 255, g: 105, b: 180}, // 热粉红
+                    {r: 255, g: 20, b: 147},  // 深粉红
+                    {r: 255, g: 192, b: 203}, // 粉红
+                    {r: 255, g: 0, b: 127},   // 玫瑰红
+                    {r: 255, g: 182, b: 193}, // 浅粉红
+                    {r: 255, g: 105, b: 180}, // 热粉红
+                ];
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                
+                this.particles = [];
+                this.exploded = false;
+            }
+
+            update() {
+                if (!this.exploded) {
+                    // 移动烟花
+                    this.speed *= this.acceleration;
+                    const vx = Math.cos(this.angle) * this.speed;
+                    const vy = Math.sin(this.angle) * this.speed;
+                    
+                    this.x += vx;
+                    this.y += vy;
+                    this.traveled += this.speed;
+                    
+                    // 检查是否到达目标
+                    const dx = this.targetX - this.x;
+                    const dy = this.targetY - this.y;
+                    const distanceToTarget = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distanceToTarget < 5 || this.traveled >= this.distance) {
+                        this.explode();
+                    }
+                } else {
+                    // 更新粒子
+                    this.particles.forEach((particle, index) => {
+                        particle.update();
+                        if (particle.alpha <= 0) {
+                            this.particles.splice(index, 1);
+                        }
+                    });
+                }
+            }
+
+            explode() {
+                this.exploded = true;
+                const particleCount = 80;
+                
+                // 创建爱心形状的粒子
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = (Math.PI * 2 * i) / particleCount;
+                    const heartShape = this.getHeartPoint(angle);
+                    
+                    this.particles.push(new Particle(
+                        this.x,
+                        this.y,
+                        heartShape.x * (0.5 + Math.random() * 0.5),
+                        heartShape.y * (0.5 + Math.random() * 0.5),
+                        this.color,
+                        Math.random() * 2 + 1
+                    ));
+                }
+                
+                // 触发爆炸事件
+                if (typeof this.onExplode === 'function') {
+                    this.onExplode();
+                }
+            }
+
+            // 获取爱心形状的点
+            getHeartPoint(t) {
+                // 参数方程：爱心曲线
+                const scale = 15 + Math.random() * 10;
+                const x = scale * 16 * Math.pow(Math.sin(t), 3);
+                const y = -scale * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+                return { x, y };
+            }
+
+            draw() {
+                if (!this.exploded) {
+                    // 绘制上升的烟花
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 1)`;
+                    ctx.fill();
+                    
+                    // 添加光晕效果
+                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 8);
+                    gradient.addColorStop(0, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 1)`);
+                    gradient.addColorStop(1, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0)`);
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(this.x - 8, this.y - 8, 16, 16);
+                } else {
+                    // 绘制爆炸的粒子
+                    this.particles.forEach(particle => particle.draw());
+                }
+            }
+        }
+
+        // 粒子类
+        class Particle {
+            constructor(x, y, vx, vy, color, size) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.size = size;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.02 + 0.015;
+                this.gravity = 0.1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity;
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+                this.alpha -= this.decay;
+                this.size *= 0.99;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                
+                // 创建渐变效果
+                const gradient = ctx.createRadialGradient(
+                    this.x, this.y, 0,
+                    this.x, this.y, this.size * 2
+                );
+                gradient.addColorStop(0, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 1)`);
+                gradient.addColorStop(0.5, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0.5)`);
+                gradient.addColorStop(1, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 烟花数组
+        const fireworks = [];
+        let textShown = false;
+        const mainText = document.querySelector('.main-text');
+
+        // 显示文字的函数
+        function showText() {
+            if (!textShown) {
+                textShown = true;
+                setTimeout(() => {
+                    mainText.classList.add('show');
+                }, 500); // 烟花爆炸后延迟0.5秒显示文字
+            }
+        }
+
+        // 鼠标点击事件
+        canvas.addEventListener('click', (e) => {
+            const startX = canvas.width / 2;
+            const startY = canvas.height;
+            const targetX = e.clientX;
+            const targetY = e.clientY;
+            
+            const firework = new Firework(startX, startY, targetX, targetY);
+            firework.onExplode = showText;
+            fireworks.push(firework);
+        });
+
+        // 自动发射烟花
+        let autoFireworkTimer = 0;
+        function autoFirework() {
+            autoFireworkTimer++;
+            if (autoFireworkTimer % 60 === 0) {
+                const startX = canvas.width / 2;
+                const startY = canvas.height;
+                const targetX = Math.random() * canvas.width;
+                const targetY = Math.random() * (canvas.height * 0.6) + canvas.height * 0.1;
+                
+                const firework = new Firework(startX, startY, targetX, targetY);
+                firework.onExplode = showText;
+                fireworks.push(firework);
+            }
+        }
+
+        // 动画循环
+        function animate() {
+            // 创建半透明背景效果（拖尾效果）
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 自动发射烟花
+            autoFirework();
+            
+            // 更新和绘制所有烟花
+            fireworks.forEach((firework, index) => {
+                firework.update();
+                firework.draw();
+                
+                // 移除已完成的烟花
+                if (firework.exploded && firework.particles.length === 0) {
+                    fireworks.splice(index, 1);
+                }
+            });
+            
+            requestAnimationFrame(animate);
+        }
+
+        // 启动动画
+        animate();
+
+        // 初始发射几个烟花
+        setTimeout(() => {
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    const startX = canvas.width / 2;
+                    const startY = canvas.height;
+                    const targetX = Math.random() * canvas.width;
+                    const targetY = Math.random() * (canvas.height * 0.6) + canvas.height * 0.1;
+                    const firework = new Firework(startX, startY, targetX, targetY);
+                    firework.onExplode = showText;
+                    fireworks.push(firework);
+                }, i * 500);
+            }
+        }, 500);
+    </script>
+</body>
+</html>
