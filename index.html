@@ -487,47 +487,52 @@
                            this.restDay;
                 },
                 todayEarnings() {
-                    if (!this.monthlySalary || !this.startTime || !this.restDay) {
+                    if (!this.monthlySalary || !this.startTime || !this.endTime || !this.restDay) {
                         return 0;
                     }
 
-                    // 解析上班时间
+                    // 解析上班时间和下班时间
                     const start = this.parseTime(this.startTime);
-                    if (!start) {
+                    const endTime = this.parseTime(this.endTime);
+                    
+                    if (!start || !endTime || endTime <= start) {
                         return 0;
                     }
 
-                    // 如果已经确认计算，使用当前时间；否则使用下班时间
-                    let end;
-                    if (this.showResult) {
-                        // 实时计时：使用当前时间
-                        end = new Date(this.currentTime);
-                    } else {
-                        // 未确认时，使用输入的下班时间
-                        end = this.parseTime(this.endTime);
-                        if (!end || end <= start) {
-                            return 0;
-                        }
-                    }
-
-                    // 如果当前时间还没到上班时间，返回0
-                    if (end < start) {
-                        return 0;
-                    }
-
-                    // 计算工作小时数
-                    const workHours = (end - start) / (1000 * 60 * 60);
+                    // 计算标准工作时间（用户输入的上下班时间差）
+                    const standardWorkHours = (endTime - start) / (1000 * 60 * 60);
 
                     // 根据休息制度计算工作天数
                     // 双休：一个月22个工作日，单休：一个月26个工作日
                     const workDays = this.restDay === '双休' ? 22 : 26;
                     
-                    // 假设每天工作8小时
-                    // 时薪 = 月工资 / (工作天数 * 8小时)
-                    const hourlyRate = this.monthlySalary / (workDays * 8);
+                    // 计算日薪：月工资 / 工作天数（一天最多赚的钱）
+                    const dailySalary = this.monthlySalary / workDays;
 
-                    // 今天赚的钱 = 时薪 * 工作小时数
-                    return hourlyRate * workHours;
+                    // 如果已经确认计算，使用当前时间计算已工作时间
+                    let actualWorkHours = 0;
+                    if (this.showResult) {
+                        // 实时计时：使用当前时间
+                        const now = new Date(this.currentTime);
+                        if (now < start) {
+                            // 还没到上班时间
+                            return 0;
+                        }
+                        // 计算已工作时间
+                        actualWorkHours = (now - start) / (1000 * 60 * 60);
+                    } else {
+                        // 未确认时，使用输入的下班时间计算
+                        actualWorkHours = standardWorkHours;
+                    }
+
+                    // 如果已工作时间 <= 标准工作时间，按比例计算
+                    if (actualWorkHours <= standardWorkHours) {
+                        // 按比例计算：日薪 × (已工作时间 / 标准工作时间)
+                        return dailySalary * (actualWorkHours / standardWorkHours);
+                    } else {
+                        // 超过标准工作时间，最多就是日薪
+                        return dailySalary;
+                    }
                 },
                 formattedEarnings() {
                     return this.todayEarnings.toFixed(3);
