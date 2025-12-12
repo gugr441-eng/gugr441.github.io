@@ -182,6 +182,57 @@
             background: #e8e8e8;
         }
 
+        .custom-rest-wrapper {
+            position: relative;
+        }
+
+        .custom-rest-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 200px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .custom-rest-dropdown label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .custom-rest-dropdown input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .custom-rest-dropdown .work-days-info {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+        }
+
         .confirm-button {
             width: 100%;
             padding: 14px 24px;
@@ -336,6 +387,16 @@
             .time-inputs {
                 grid-template-columns: 1fr;
             }
+
+            .radio-group {
+                flex-direction: column;
+            }
+
+            .custom-rest-dropdown {
+                right: auto;
+                left: 0;
+                width: 100%;
+            }
         }
 
         .fade-enter-active, .fade-leave-active {
@@ -384,7 +445,7 @@
                                     value="双休"
                                     v-model="restDay"
                                 >
-                                <span>双休（每月22个工作日）</span>
+                                <span>双休 {{ workDaysInfo.双休 }}天</span>
                             </label>
                             <label class="radio-item" :class="{ selected: restDay === '单休' }">
                                 <input 
@@ -392,7 +453,33 @@
                                     value="单休"
                                     v-model="restDay"
                                 >
-                                <span>单休（每月26个工作日）</span>
+                                <span>单休 {{ workDaysInfo.单休 }}天</span>
+                            </label>
+                            <label class="radio-item custom-rest-wrapper" :class="{ selected: restDay === '自定义' }" @click.stop="handleCustomClick">
+                                <input 
+                                    type="radio" 
+                                    value="自定义"
+                                    v-model="restDay"
+                                    @change="handleCustomChange"
+                                >
+                                <span>自定义 {{ restDay === '自定义' ? workDaysInfo.自定义 + '天' : '' }}</span>
+                                <div v-if="restDay === '自定义' && showCustomDropdown" class="custom-rest-dropdown" @click.stop>
+                                    <label for="customRestDays">
+                                        休息天数（0-{{ daysInCurrentMonth }}天）
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        id="customRestDays"
+                                        v-model.number="customRestDays" 
+                                        placeholder="请输入休息天数"
+                                        :min="0"
+                                        :max="daysInCurrentMonth"
+                                        @blur="handleCustomBlur"
+                                    >
+                                    <div class="work-days-info">
+                                        工作日：{{ workDaysInfo.自定义 }}天
+                                    </div>
+                                </div>
                             </label>
                         </div>
                     </div>
@@ -443,7 +530,8 @@
 
                     <transition name="fade">
                         <div class="result-box" v-if="showResult && canCalculate" :class="{ show: showResult }">
-                            <div class="result-label">今天赚了</div>
+                            <div class="result-label" v-if="isOffWork">下班啦！今天赚了</div>
+                            <div class="result-label" v-else>今天赚了</div>
                             <div class="result-value" :class="{ updating: isUpdating }" :key="formattedEarnings">
                                 {{ formattedEarnings }}
                                 <span class="result-unit">元</span>
@@ -467,6 +555,8 @@
                     currentFunction: 'salary',
                     monthlySalary: 0,
                     restDay: '双休',
+                    customRestDays: 0,
+                    showCustomDropdown: false,
                     startTime: '',
                     endTime: '',
                     startHour: 9,
@@ -480,11 +570,60 @@
                 }
             },
             computed: {
+                daysInCurrentMonth() {
+                    const now = new Date();
+                    return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                },
+                workDaysInfo() {
+                    const daysInMonth = this.daysInCurrentMonth;
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = now.getMonth();
+                    
+                    // 计算双休的工作日（总天数 - 周六和周日）
+                    let doubleRestDays = 0;
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const date = new Date(year, month, day);
+                        const dayOfWeek = date.getDay();
+                        if (dayOfWeek === 0 || dayOfWeek === 6) { // 0是周日，6是周六
+                            doubleRestDays++;
+                        }
+                    }
+                    const doubleWorkDays = daysInMonth - doubleRestDays;
+                    
+                    // 计算单休的工作日（总天数 - 周日）
+                    let singleRestDays = 0;
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const date = new Date(year, month, day);
+                        const dayOfWeek = date.getDay();
+                        if (dayOfWeek === 0) { // 0是周日
+                            singleRestDays++;
+                        }
+                    }
+                    const singleWorkDays = daysInMonth - singleRestDays;
+                    
+                    // 自定义工作日
+                    const customWorkDays = Math.max(0, daysInMonth - (this.customRestDays || 0));
+                    
+                    return {
+                        '双休': doubleWorkDays,
+                        '单休': singleWorkDays,
+                        '自定义': customWorkDays
+                    };
+                },
+                workDays() {
+                    return this.workDaysInfo[this.restDay] || 0;
+                },
                 canCalculate() {
-                    return this.monthlySalary > 0 && 
-                           this.startTime && 
-                           this.endTime &&
-                           this.restDay;
+                    if (this.monthlySalary <= 0 || !this.startTime || !this.endTime || !this.restDay) {
+                        return false;
+                    }
+                    if (this.restDay === '自定义') {
+                        return this.customRestDays >= 0 && 
+                               this.customRestDays <= this.daysInCurrentMonth &&
+                               this.workDays > 0;
+                    }
+                    return true;
                 },
                 todayEarnings() {
                     if (!this.monthlySalary || !this.startTime || !this.endTime || !this.restDay) {
@@ -502,9 +641,12 @@
                     // 计算标准工作时间（用户输入的上下班时间差）
                     const standardWorkHours = (endTime - start) / (1000 * 60 * 60);
 
-                    // 根据休息制度计算工作天数
-                    // 双休：一个月22个工作日，单休：一个月26个工作日
-                    const workDays = this.restDay === '双休' ? 22 : 26;
+                    // 根据休息制度计算工作天数（使用计算属性）
+                    const workDays = this.workDays;
+                    
+                    if (workDays <= 0) {
+                        return 0;
+                    }
                     
                     // 计算日薪：月工资 / 工作天数（一天最多赚的钱）
                     const dailySalary = this.monthlySalary / workDays;
@@ -537,6 +679,17 @@
                 formattedEarnings() {
                     return this.todayEarnings.toFixed(3);
                 },
+                isOffWork() {
+                    if (!this.showResult || !this.endTime) {
+                        return false;
+                    }
+                    const endTime = this.parseTime(this.endTime);
+                    if (!endTime) {
+                        return false;
+                    }
+                    const now = new Date(this.currentTime);
+                    return now >= endTime;
+                },
                 workTimeText() {
                     if (!this.showResult || !this.startTime) {
                         return '';
@@ -550,6 +703,11 @@
                     const now = new Date(this.currentTime);
                     if (now < start) {
                         return '还未开始工作';
+                    }
+
+                    // 如果已经下班，不显示工作时间
+                    if (this.isOffWork) {
+                        return '';
                     }
 
                     const diff = now - start;
@@ -577,6 +735,15 @@
                         // 停止计时
                         this.stopTimer();
                     }
+                },
+                restDay(newVal) {
+                    // 当切换休息制度时，如果不是自定义，关闭下拉框
+                    if (newVal !== '自定义') {
+                        this.showCustomDropdown = false;
+                    } else if (newVal === '自定义') {
+                        // 切换到自定义时，显示下拉框
+                        this.showCustomDropdown = true;
+                    }
                 }
             },
             mounted() {
@@ -587,9 +754,13 @@
                 if (this.showResult) {
                     this.startTimer();
                 }
+                // 添加全局点击监听
+                document.addEventListener('click', this.handleClickOutside);
             },
             beforeUnmount() {
                 this.stopTimer();
+                // 移除全局点击监听
+                document.removeEventListener('click', this.handleClickOutside);
             },
             methods: {
                 startTimer() {
@@ -649,6 +820,29 @@
                     const now = new Date();
                     const time = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
                     return time;
+                },
+                handleCustomChange() {
+                    // 当选择自定义时，显示下拉框（这个由watch中的restDay处理）
+                },
+                handleCustomClick(event) {
+                    // 如果点击的是radio按钮，不处理（让change事件处理）
+                    if (event.target.type === 'radio') {
+                        return;
+                    }
+                    // 点击自定义选项的其他部分时，如果已经是自定义，切换下拉框显示
+                    if (this.restDay === '自定义') {
+                        this.showCustomDropdown = !this.showCustomDropdown;
+                    }
+                },
+                handleCustomBlur() {
+                    // 输入框失去焦点时不立即关闭，等待点击外部区域关闭
+                },
+                handleClickOutside(event) {
+                    // 点击外部区域时关闭下拉框
+                    const customWrapper = event.target.closest('.custom-rest-wrapper');
+                    if (!customWrapper && this.showCustomDropdown) {
+                        this.showCustomDropdown = false;
+                    }
                 }
             }
         }).mount('#app');
