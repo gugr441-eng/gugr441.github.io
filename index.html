@@ -406,6 +406,124 @@
             opacity: 0;
             transform: translateY(20px);
         }
+
+        /* 心情日历样式 */
+        .mood-calendar {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            animation: fadeInUp 0.6s ease;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .calendar-btn {
+            border: 1px solid #e0e0e0;
+            background: #fafafa;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .calendar-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 12px;
+        }
+
+        .calendar-weekday {
+            text-align: center;
+            color: #888;
+            font-size: 12px;
+        }
+
+        .calendar-day {
+            border: 1px solid #f0f0f0;
+            border-radius: 12px;
+            padding: 10px;
+            min-height: 70px;
+            background: #fff;
+            box-shadow: inset 0 0 0 1px #f7f7f7;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .calendar-day.inactive {
+            color: #ccc;
+            background: #fafafa;
+        }
+
+        .calendar-day.today {
+            border-color: #333;
+            box-shadow: inset 0 0 0 2px #333;
+        }
+
+        .day-number {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .mood-tag {
+            margin-top: 6px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            width: fit-content;
+            background: #f2f2f2;
+            color: #444;
+        }
+
+        .mood-picker {
+            margin-top: 24px;
+            border-top: 1px solid #f0f0f0;
+            padding-top: 16px;
+        }
+
+        .mood-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .mood-option {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            background: #fafafa;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mood-option.active {
+            background: #333;
+            color: white;
+            border-color: #333;
+        }
+
+        .mood-label {
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -419,6 +537,13 @@
                     @click="currentFunction = 'salary'"
                 >
                     上班记薪器
+                </div>
+                <div 
+                    class="nav-item" 
+                    :class="{ active: currentFunction === 'mood' }"
+                    @click="currentFunction = 'mood'"
+                >
+                    心情日历
                 </div>
             </div>
             <div class="content">
@@ -542,6 +667,52 @@
                         </div>
                     </transition>
                 </div>
+                <div v-if="currentFunction === 'mood'" class="mood-calendar">
+                    <h2 class="function-title">心情日历</h2>
+                    <div class="calendar-header">
+                        <div>
+                            <div style="font-size:24px;font-weight:700;color:#333;">
+                                {{ calendarTitle }}
+                            </div>
+                            <div style="color:#888;font-size:12px;margin-top:4px;">点击选择今日心情，自动保存本地</div>
+                        </div>
+                        <div class="calendar-nav">
+                            <button class="calendar-btn" @click="changeMonth(-1)">上一月</button>
+                            <button class="calendar-btn" @click="resetToToday">回到本月</button>
+                            <button class="calendar-btn" @click="changeMonth(1)">下一月</button>
+                        </div>
+                    </div>
+                    <div class="calendar-grid" style="margin-bottom:12px;">
+                        <div class="calendar-weekday" v-for="w in weekdays" :key="w">{{ w }}</div>
+                        <div 
+                            v-for="day in calendarCells" 
+                            :key="day.key"
+                            class="calendar-day"
+                            :class="{ inactive: !day.isCurrentMonth, today: day.isToday }"
+                        >
+                            <span class="day-number">{{ day.dateNum }}</span>
+                            <span v-if="day.moodLabel" class="mood-tag">{{ day.moodLabel }}</span>
+                        </div>
+                    </div>
+                    <div class="mood-picker">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div style="font-weight:600;">今日心情：{{ todayMoodLabel }}</div>
+                            <div style="color:#888;font-size:12px;">{{ todayKey }}</div>
+                        </div>
+                        <div class="mood-options">
+                            <div 
+                                v-for="item in moodOptions" 
+                                :key="item.value" 
+                                class="mood-option"
+                                :class="{ active: selectedMood === item.value }"
+                                @click="selectMood(item.value)"
+                            >
+                                <span>{{ item.icon }}</span>
+                                <span class="mood-label">{{ item.label }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -566,10 +737,66 @@
                     showResult: false,
                     isUpdating: false,
                     currentTime: new Date(),
-                    timer: null
+                    timer: null,
+                    // 心情日历
+                    calendarDate: new Date(),
+                    moodOptions: [
+                        { value: 'happy', label: '开心', icon: '😀' },
+                        { value: 'calm', label: '平静', icon: '🙂' },
+                        { value: 'tired', label: '疲惫', icon: '😪' },
+                        { value: 'busy', label: '忙碌', icon: '😵' },
+                        { value: 'sad', label: '低落', icon: '😔' },
+                        { value: 'angry', label: '生气', icon: '😠' },
+                        { value: 'excited', label: '激动', icon: '🤩' }
+                    ],
+                    storedMoods: {},
+                    selectedMood: '',
+                    weekdays: ['日', '一', '二', '三', '四', '五', '六']
                 }
             },
             computed: {
+                calendarTitle() {
+                    const year = this.calendarDate.getFullYear();
+                    const month = this.calendarDate.getMonth() + 1;
+                    return `${year}年${String(month).padStart(2, '0')}月`;
+                },
+                todayKey() {
+                    return this.formatDateKey(new Date());
+                },
+                todayMoodLabel() {
+                    const mood = this.storedMoods[this.todayKey];
+                    const found = this.moodOptions.find(m => m.value === mood);
+                    return found ? `${found.icon} ${found.label}` : '未选择';
+                },
+                calendarCells() {
+                    const year = this.calendarDate.getFullYear();
+                    const month = this.calendarDate.getMonth();
+                    const firstDay = new Date(year, month, 1);
+                    const startWeekday = firstDay.getDay();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                    const prevMonthDays = [];
+                    for (let i = 0; i < startWeekday; i++) {
+                        const date = new Date(year, month, -i);
+                        prevMonthDays.unshift(this.buildDayCell(date, false));
+                    }
+
+                    const currentDays = [];
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        const date = new Date(year, month, d);
+                        currentDays.push(this.buildDayCell(date, true));
+                    }
+
+                    const total = prevMonthDays.length + currentDays.length;
+                    const nextFill = total % 7 === 0 ? 0 : 7 - (total % 7);
+                    const nextMonthDays = [];
+                    for (let i = 1; i <= nextFill; i++) {
+                        const date = new Date(year, month + 1, i);
+                        nextMonthDays.push(this.buildDayCell(date, false));
+                    }
+
+                    return [...prevMonthDays, ...currentDays, ...nextMonthDays];
+                },
                 daysInCurrentMonth() {
                     const now = new Date();
                     return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -756,6 +983,8 @@
                 }
                 // 添加全局点击监听
                 document.addEventListener('click', this.handleClickOutside);
+                this.loadStoredMoods();
+                this.selectedMood = this.storedMoods[this.todayKey] || '';
             },
             beforeUnmount() {
                 this.stopTimer();
@@ -843,6 +1072,53 @@
                     if (!customWrapper && this.showCustomDropdown) {
                         this.showCustomDropdown = false;
                     }
+                },
+                // 心情日历相关
+                formatDateKey(date) {
+                    const y = date.getFullYear();
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const d = String(date.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                },
+                buildDayCell(date, isCurrentMonth) {
+                    const key = this.formatDateKey(date);
+                    const mood = this.storedMoods[key];
+                    const moodItem = this.moodOptions.find(m => m.value === mood);
+                    const todayKey = this.todayKey;
+                    return {
+                        key,
+                        dateNum: date.getDate(),
+                        isCurrentMonth,
+                        isToday: key === todayKey,
+                        moodLabel: moodItem ? `${moodItem.icon} ${moodItem.label}` : ''
+                    };
+                },
+                changeMonth(delta) {
+                    const year = this.calendarDate.getFullYear();
+                    const month = this.calendarDate.getMonth();
+                    this.calendarDate = new Date(year, month + delta, 1);
+                },
+                resetToToday() {
+                    this.calendarDate = new Date();
+                },
+                loadStoredMoods() {
+                    try {
+                        const raw = localStorage.getItem('moodCalendar');
+                        this.storedMoods = raw ? JSON.parse(raw) : {};
+                    } catch (e) {
+                        this.storedMoods = {};
+                    }
+                },
+                saveStoredMoods() {
+                    localStorage.setItem('moodCalendar', JSON.stringify(this.storedMoods));
+                },
+                selectMood(value) {
+                    this.selectedMood = value;
+                    this.storedMoods = {
+                        ...this.storedMoods,
+                        [this.todayKey]: value
+                    };
+                    this.saveStoredMoods();
                 }
             }
         }).mount('#app');
