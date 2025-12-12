@@ -397,6 +397,61 @@
                 left: 0;
                 width: 100%;
             }
+
+            /* 心情日历移动端适配 */
+            .mood-calendar {
+                padding: 24px 20px;
+            }
+
+            .calendar-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .calendar-nav {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .calendar-btn {
+                flex: 1;
+                min-width: 120px;
+                text-align: center;
+            }
+
+            .calendar-grid {
+                gap: 6px;
+                grid-template-columns: repeat(7, minmax(0, 1fr));
+                width: 100%;
+            }
+
+            .calendar-day {
+                min-height: 54px;
+                padding: 6px;
+                overflow: hidden;
+                text-align: center;
+                align-items: center;
+                gap: 4px;
+            }
+
+            .day-number {
+                font-size: 12px;
+            }
+
+            .mood-tag {
+                margin: 2px auto 0;
+                padding: 2px 6px;
+            }
+
+            .mood-options {
+                gap: 8px;
+            }
+
+            .mood-option {
+                flex: 1 1 calc(50% - 8px);
+                justify-content: center;
+            }
         }
 
         .fade-enter-active, .fade-leave-active {
@@ -456,13 +511,15 @@
         .calendar-day {
             border: 1px solid #f0f0f0;
             border-radius: 12px;
-            padding: 10px;
+            padding: 8px;
             min-height: 70px;
             background: #fff;
             box-shadow: inset 0 0 0 1px #f7f7f7;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
         }
 
         .calendar-day.inactive {
@@ -481,13 +538,19 @@
         }
 
         .mood-tag {
-            margin-top: 6px;
-            padding: 4px 8px;
+            margin-top: 2px;
+            padding: 3px 6px;
             border-radius: 8px;
             font-size: 12px;
-            width: fit-content;
+            width: 100%;
+            max-width: 100%;
+            text-align: center;
             background: #f2f2f2;
             color: #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
         }
 
         .mood-picker {
@@ -1090,7 +1153,7 @@
                         dateNum: date.getDate(),
                         isCurrentMonth,
                         isToday: key === todayKey,
-                        moodLabel: moodItem ? `${moodItem.icon} ${moodItem.label}` : ''
+                        moodLabel: moodItem ? moodItem.icon : ''
                     };
                 },
                 changeMonth(delta) {
